@@ -39,7 +39,7 @@ def main(input, output, tag_det_threshold, nominal_z):
     max_gripper_id = max_tag_id // tag_per_gripper
     
     gripper_prob_map = dict()
-    for gripper_id in range(max_gripper_id+1):
+    for gripper_id in range(max_gripper_id + 1):
         left_id = gripper_id * tag_per_gripper
         right_id = left_id + 1
         left_prob = tag_stats[left_id]

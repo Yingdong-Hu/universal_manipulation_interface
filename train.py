@@ -31,5 +31,6 @@ def main(cfg: OmegaConf):
     workspace: BaseWorkspace = cls(cfg)
     workspace.run()
 
+
 if __name__ == "__main__":
     main()

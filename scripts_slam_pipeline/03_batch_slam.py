@@ -108,7 +108,7 @@ def main(input_dir, map_path, docker_image, num_workers, max_lost_frames, timeou
                 cmd = [
                     'docker',
                     'run',
-                    '--rm', # delete after finish
+                    '--rm',  # delete after finish
                     '--volume', str(video_dir) + ':' + '/data',
                     '--volume', str(map_mount_source.parent) + ':' + str(map_mount_target.parent),
                     docker_image,

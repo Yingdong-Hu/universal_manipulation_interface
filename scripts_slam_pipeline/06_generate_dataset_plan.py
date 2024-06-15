@@ -24,6 +24,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
 import av
+import cv2
 from exiftool import ExifToolHelper
 from umi.common.timecode_util import mp4_get_start_datetime
 from umi.common.pose_util import pose_to_mat, mat_to_pose
@@ -99,12 +100,12 @@ def main(input, output, tcp_offset, tx_slam_tag,
     # tcp to camera transform
     # all unit in meters
     # y axis in camera frame
-    cam_to_center_height = 0.086 # constant for UMI
+    cam_to_center_height = 0.086    # constant for UMI   # 835
     # optical center to mounting screw, positive is when optical center is in front of the mount
-    cam_to_mount_offset = 0.01465 # constant for GoPro Hero 9,10,11
+    cam_to_mount_offset = 0.01465   # constant for GoPro Hero 9,10,11
     cam_to_tip_offset = cam_to_mount_offset + tcp_offset
 
-    pose_cam_tcp = np.array([0, cam_to_center_height, cam_to_tip_offset, 0,0,0])
+    pose_cam_tcp = np.array([0, cam_to_center_height, cam_to_tip_offset, 0, 0, 0])
     tx_cam_tcp = pose_to_mat(pose_cam_tcp)
         
     # SLAM map origin to table tag transform
@@ -178,15 +179,27 @@ def main(input, output, tcp_offset, tx_slam_tag,
                 print(f"Ignored {video_dir.name}, no tag_detection.pkl")
                 continue
             
-            with av.open(str(mp4_path), 'r') as container:
-                stream = container.streams.video[0]
-                n_frames = stream.frames
-                if fps is None:
-                    fps = stream.average_rate
-                else:
-                    if fps != stream.average_rate:
-                        print(f"Inconsistent fps: {float(fps)} vs {float(stream.average_rate)} in {video_dir.name}")
-                        exit(1)
+            # with av.open(str(mp4_path), 'r') as container:
+            #     stream = container.streams.video[0]
+            #     n_frames = stream.frames
+            #     if fps is None:
+            #         fps = stream.average_rate
+            #     else:
+            #         if fps != stream.average_rate:
+            #             print(f"Inconsistent fps: {float(fps)} vs {float(stream.average_rate)} in {video_dir.name}")
+            #             exit(1)
+            cap = cv2.VideoCapture(str(mp4_path))
+            n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            stream_fps = cap.get(cv2.CAP_PROP_FPS)
+            if fps is None:
+                fps = stream_fps
+            else:
+                if fps != stream_fps:
+                    print(f"Inconsistent fps: {float(fps)} vs {float(stream_fps)} in {video_dir.name}")
+                    cap.release()
+                    exit(1)
+            cap.release()
+
             duration_sec = float(n_frames / fps)
             end_timestamp = start_timestamp + duration_sec
             

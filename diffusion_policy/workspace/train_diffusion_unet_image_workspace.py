@@ -9,6 +9,7 @@ if __name__ == "__main__":
 
 import os
 import hydra
+import time
 import torch
 from omegaconf import OmegaConf
 import pathlib
@@ -319,8 +320,11 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
                             val_sampling_batch = next(iter(val_dataloader))
                             batch = dict_apply(val_sampling_batch, lambda x: x.to(device, non_blocking=True))
                             gt_action = batch['action']
+                            start_time = time.time()
                             pred_action = policy.predict_action(batch['obs'], None)['action_pred']
+                            end_time = time.time()
                             log_action_mse(step_log, 'val', pred_action, gt_action)
+                            print(f"Inference time (ms): {(end_time - start_time) * 1000}")
 
                         del batch
                         del gt_action

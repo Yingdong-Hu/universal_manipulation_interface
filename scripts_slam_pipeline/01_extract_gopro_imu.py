@@ -63,7 +63,7 @@ def main(docker_image, num_workers, no_docker_pull, session_dir):
                     cmd = [
                         'docker',
                         'run',
-                        '--rm', # delete after finish
+                        '--rm',  # delete after finish
                         '--volume', str(video_dir) + ':' + '/data',
                         docker_image,
                         'node',

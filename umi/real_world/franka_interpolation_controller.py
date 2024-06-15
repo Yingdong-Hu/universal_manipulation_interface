@@ -16,6 +16,7 @@ import torch
 from umi.common.pose_util import pose_to_mat, mat_to_pose
 import zerorpc
 
+
 class Command(enum.Enum):
     STOP = 0
     SERVOL = 1
@@ -23,15 +24,17 @@ class Command(enum.Enum):
 
 tx_flangerot90_tip = np.identity(4)
 tx_flangerot90_tip[:3, 3] = np.array([-0.0336, 0, 0.247])
+# 0, 0.0336, 0.247
 
 tx_flangerot45_flangerot90 = np.identity(4)
-tx_flangerot45_flangerot90[:3,:3] = st.Rotation.from_euler('x', [np.pi/2]).as_matrix()
+tx_flangerot45_flangerot90[:3, :3] = st.Rotation.from_euler('x', [np.pi/2]).as_matrix()
 
 tx_flange_flangerot45 = np.identity(4)
-tx_flange_flangerot45[:3,:3] = st.Rotation.from_euler('z', [np.pi/4]).as_matrix()
+tx_flange_flangerot45[:3, :3] = st.Rotation.from_euler('z', [np.pi/4]).as_matrix()
 
-tx_flange_tip = tx_flange_flangerot45 @ tx_flangerot45_flangerot90 @tx_flangerot90_tip
+tx_flange_tip = tx_flange_flangerot45 @ tx_flangerot45_flangerot90 @ tx_flangerot90_tip
 tx_tip_flange = np.linalg.inv(tx_flange_tip)
+
 
 class FrankaInterface:
     def __init__(self, ip='172.16.0.3', port=4242):

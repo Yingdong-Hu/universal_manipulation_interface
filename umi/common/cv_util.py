@@ -183,7 +183,7 @@ def detect_localize_aruco_tags(
         marker_size_m = marker_size_map[this_id]
         undistorted = cv2.fisheye.undistortPoints(this_corners, K, D, P=K)
         rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(
-            undistorted, marker_size_m, K, np.zeros((1,5)))
+            undistorted, marker_size_m, K, np.zeros((1, 5)))
         tag_dict[this_id] = {
             'rvec': rvec.squeeze(),
             'tvec': tvec.squeeze(),

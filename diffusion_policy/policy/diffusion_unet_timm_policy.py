@@ -42,7 +42,6 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
         # get feature dim
         obs_feature_dim = np.prod(obs_encoder.output_shape())
 
-
         # create diffusion model
         assert obs_as_global_cond
         input_dim = action_dim

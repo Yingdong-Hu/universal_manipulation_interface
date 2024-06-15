@@ -46,9 +46,9 @@ def main(tag_detection, csv_trajectory, output, tag_id, keyframe_only):
     cam_rot_quat_xyzw = df[['q_x', 'q_y', 'q_z', 'q_w']].loc[is_valid].to_numpy()
     cam_rot = Rotation.from_quat(cam_rot_quat_xyzw)
     cam_pose = np.zeros((cam_pos.shape[0], 4, 4), dtype=np.float32)
-    cam_pose[:,3,3] = 1
-    cam_pose[:,:3,3] = cam_pos
-    cam_pose[:,:3,:3] = cam_rot.as_matrix()
+    cam_pose[:, 3, 3] = 1
+    cam_pose[:, :3, 3] = cam_pos
+    cam_pose[:, :3, :3] = cam_rot.as_matrix()
 
     # match tum data to video idx
     video_timestamps = np.array([x['time'] for x in tag_detection_results])
@@ -71,8 +71,8 @@ def main(tag_detection, csv_trajectory, output, tag_id, keyframe_only):
         tx_slam_cam = cam_pose[tum_idx]
 
         # filter cam pose
-        dist_to_cam = np.linalg.norm(tx_cam_tag[:3,3])
-        if (dist_to_cam < 0.3) or  (dist_to_cam > 2):
+        dist_to_cam = np.linalg.norm(tx_cam_tag[:3, 3])
+        if (dist_to_cam < 0.3) or (dist_to_cam > 2):
             continue
         
         # filter tag location in image
@@ -89,14 +89,14 @@ def main(tag_detection, csv_trajectory, output, tag_id, keyframe_only):
     all_tx_slam_tag = np.array(all_tx_slam_tag)
 
     # find transform closest to the mean
-    all_slam_tag_pos = all_tx_slam_tag[:,:3,3]
+    all_slam_tag_pos = all_tx_slam_tag[:, :3, 3]
     median = geometric_median(all_slam_tag_pos)
-    dists = np.linalg.norm((all_tx_slam_tag[:,:3,3] - median), axis=-1)
+    dists = np.linalg.norm((all_tx_slam_tag[:, :3, 3] - median), axis=-1)
     threshold = np.quantile(dists, 0.9)
     is_valid = dists < threshold
     std = all_slam_tag_pos[is_valid].std(axis=0)
     mean = all_slam_tag_pos[is_valid].mean(axis=0)
-    dists = np.linalg.norm((all_tx_slam_tag[is_valid][:,:3,3] - mean), axis=-1)
+    dists = np.linalg.norm((all_tx_slam_tag[is_valid][:, :3, 3] - mean), axis=-1)
     nn_idx = np.argmin(dists)
     tx_slam_tag = all_tx_slam_tag[is_valid][nn_idx]
     print("Tag detection standard deviation (cm) < 0.9 quantile")

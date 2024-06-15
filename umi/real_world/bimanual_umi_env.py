@@ -364,7 +364,7 @@ class BimanualUmiEnv:
         # 60 Hz, camera_calibrated_timestamp
         k = math.ceil(
             self.camera_obs_horizon * self.camera_down_sample_steps \
-            * (60 / self.frequency)) + 2 # here 2 is adjustable, typically 1 should be enough
+            * (60 / self.frequency)) + 2  # here 2 is adjustable, typically 1 should be enough
         # print('==>k  ', k, self.camera_obs_horizon, self.camera_down_sample_steps, self.frequency)
         self.last_camera_data = self.camera.get(
             k=k, 
