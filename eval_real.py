@@ -123,13 +123,14 @@ def solve_sphere_collision(ee_poses, robots_config):
 @click.option('-sf', '--sim_fov', type=float, default=None)
 @click.option('-ci', '--camera_intrinsics', type=str, default=None)
 @click.option('--mirror_swap', is_flag=True, default=False)
+@click.option('--bfloat16', is_flag=True, default=False)
 def main(input, output, robot_config, 
     match_dataset, match_episode, match_camera,
     camera_reorder,
     vis_camera_idx, init_joints, 
     steps_per_inference, max_duration,
-    frequency, command_latency, 
-    no_mirror, sim_fov, camera_intrinsics, mirror_swap):
+    frequency, command_latency,
+    no_mirror, sim_fov, camera_intrinsics, mirror_swap, bfloat16):
     max_gripper_width = 0.09
     gripper_speed = 0.2
     
@@ -232,15 +233,16 @@ def main(input, output, robot_config,
             policy = workspace.model
             if cfg.training.use_ema:
                 policy = workspace.ema_model
-            policy.num_inference_steps = 16 # DDIM inference iterations
+            policy.num_inference_steps = 16  # DDIM inference iterations
             obs_pose_rep = cfg.task.pose_repr.obs_pose_repr
             action_pose_repr = cfg.task.pose_repr.action_pose_repr
             print('obs_pose_rep', obs_pose_rep)
             print('action_pose_repr', action_pose_repr)
 
-
             device = torch.device('cuda')
             policy.eval().to(device)
+            if bfloat16:
+                policy = policy.to(torch.bfloat16)
 
             print("Warming up policy inference")
             obs = env.get_obs()
@@ -260,6 +262,8 @@ def main(input, output, robot_config,
                     episode_start_pose=episode_start_pose)
                 obs_dict = dict_apply(obs_dict_np, 
                     lambda x: torch.from_numpy(x).unsqueeze(0).to(device))
+                if bfloat16:
+                    obs_dict = dict_apply(obs_dict, lambda x: x.to(torch.bfloat16))
                 result = policy.predict_action(obs_dict)
                 action = result['action_pred'][0].detach().to('cpu').numpy()
                 assert action.shape[-1] == 10 * len(robots_config)
@@ -476,6 +480,8 @@ def main(input, output, robot_config,
                                 episode_start_pose=episode_start_pose)
                             obs_dict = dict_apply(obs_dict_np, 
                                 lambda x: torch.from_numpy(x).unsqueeze(0).to(device))
+                            if bfloat16:
+                                obs_dict = dict_apply(obs_dict, lambda x: x.to(torch.bfloat16))
                             result = policy.predict_action(obs_dict)
                             raw_action = result['action_pred'][0].detach().to('cpu').numpy()
                             action = get_real_umi_action(raw_action, obs, action_pose_repr)

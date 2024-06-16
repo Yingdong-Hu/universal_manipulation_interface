@@ -193,6 +193,7 @@ class ConditionalUnet1D(nn.Module):
         # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
         timesteps = timesteps.expand(sample.shape[0])
 
+        timesteps = timesteps.to(sample.dtype)
         global_feature = self.diffusion_step_encoder(timesteps)
 
         if global_cond is not None:

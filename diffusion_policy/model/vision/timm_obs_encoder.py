@@ -69,7 +69,6 @@ class TimmObsEncoder(ModuleAttrMixin):
                  feature_aggregation: str = 'spatial_embedding',
                  downsample_ratio: int = 32,
                  position_encording: str = 'learnable',
-
                  ):
         """
         Assumes rgb input: B,T,C,H,W
