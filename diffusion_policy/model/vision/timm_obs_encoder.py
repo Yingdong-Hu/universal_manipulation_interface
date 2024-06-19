@@ -1,6 +1,7 @@
 import copy
 
 import timm
+import peft
 import math
 import torch
 import torch.nn as nn
@@ -69,6 +70,7 @@ class TimmObsEncoder(ModuleAttrMixin):
                  feature_aggregation: str = 'spatial_embedding',
                  downsample_ratio: int = 32,
                  position_encording: str = 'learnable',
+                 use_lora: bool = False,
                  ):
         """
         Assumes rgb input: B,T,C,H,W
@@ -104,6 +106,17 @@ class TimmObsEncoder(ModuleAttrMixin):
             assert pretrained
             for param in model.parameters():
                 param.requires_grad = False
+
+        if use_lora:
+            assert pretrained and not frozen
+            lora_config = peft.LoraConfig(
+                r=8,
+                lora_alpha=8,
+                lora_dropout=0.0,
+                target_modules=["qkv"],
+            )
+            model = peft.get_peft_model(model, lora_config)
+            model.print_trainable_parameters()
 
         feature_dim = None
         if model_name.startswith('resnet'):

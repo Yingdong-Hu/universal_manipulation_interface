@@ -59,7 +59,7 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
         #     cfg.optimizer, params=self.model.parameters())
 
         obs_encorder_lr = cfg.optimizer.lr
-        if cfg.policy.obs_encoder.pretrained:
+        if cfg.policy.obs_encoder.pretrained and not cfg.policy.obs_encoder.use_lora:
             obs_encorder_lr *= 0.1
             print('==> reduce pretrained obs_encorder\'s lr')
         obs_encorder_params = list()
@@ -324,7 +324,7 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
                             pred_action = policy.predict_action(batch['obs'], None)['action_pred']
                             end_time = time.time()
                             log_action_mse(step_log, 'val', pred_action, gt_action)
-                            print(f"Inference time (ms): {(end_time - start_time) * 1000}")
+                            # print(f"Inference time (ms): {(end_time - start_time) * 1000}")
 
                         del batch
                         del gt_action

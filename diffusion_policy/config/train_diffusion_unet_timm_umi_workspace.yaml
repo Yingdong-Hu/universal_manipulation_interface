@@ -48,7 +48,7 @@ policy:
     # model_name: 'convnext_base.clip_laion2b_augreg_ft_in12k'
     pretrained: True
     frozen: False
-
+    use_lora: False
     
     global_pool: ''
 
