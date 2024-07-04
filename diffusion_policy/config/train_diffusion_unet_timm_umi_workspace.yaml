@@ -49,6 +49,7 @@ policy:
     pretrained: True
     frozen: False
     use_lora: False
+    drop_path_rate: 0.0
     
     global_pool: ''
 
@@ -93,6 +94,7 @@ policy:
     use_group_norm: True
     share_rgb_model: False
     imagenet_norm: True
+    three_augment: False
 
   num_inference_steps: 16
   obs_as_global_cond: True
@@ -148,6 +150,7 @@ optimizer:
   betas: [0.95, 0.999]
   eps: 1.0e-8
   weight_decay: 1.0e-6
+  encoder_weight_decay: 0.05
 
 training:
   device: "cuda:0"
@@ -159,6 +162,7 @@ training:
   lr_warmup_steps: 2000
   num_epochs: 120
   gradient_accumulate_every: 1
+  layer_decay: 1.0
   # EMA destroys performance when used with BatchNorm
   # replace BatchNorm with GroupNorm.
   use_ema: True

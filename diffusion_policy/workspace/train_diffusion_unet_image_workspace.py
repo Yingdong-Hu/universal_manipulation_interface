@@ -30,6 +30,7 @@ from diffusion_policy.common.json_logger import JsonLogger
 from diffusion_policy.common.pytorch_util import dict_apply, optimizer_to
 from diffusion_policy.model.diffusion.ema_model import EMAModel
 from diffusion_policy.model.common.lr_scheduler import get_scheduler
+from diffusion_policy.model.common.lr_decay import param_groups_lrd
 from accelerate import Accelerator
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
@@ -58,27 +59,41 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
         # self.optimizer = hydra.utils.instantiate(
         #     cfg.optimizer, params=self.model.parameters())
 
-        obs_encorder_lr = cfg.optimizer.lr
-        if cfg.policy.obs_encoder.pretrained and not cfg.policy.obs_encoder.use_lora:
-            obs_encorder_lr *= 0.1
-            print('==> reduce pretrained obs_encorder\'s lr')
-        obs_encorder_params = list()
-        for param in self.model.obs_encoder.parameters():
-            if param.requires_grad:
-                obs_encorder_params.append(param)
-        print(f'obs_encorder params: {len(obs_encorder_params)}')
-        param_groups = [
-            {'params': self.model.model.parameters()},
-            {'params': obs_encorder_params, 'lr': obs_encorder_lr}
-        ]
-        # self.optimizer = hydra.utils.instantiate(
-        #     cfg.optimizer, params=param_groups)
+        if cfg.training.layer_decay < 1.0:
+            assert not cfg.policy.obs_encoder.use_lora
+            assert not cfg.policy.obs_encoder.share_rgb_model
+            obs_encorder_param_groups = param_groups_lrd(self.model.obs_encoder,
+                                                         shape_meta=cfg.shape_meta,
+                                                         weight_decay=cfg.optimizer.encoder_weight_decay,
+                                                         no_weight_decay_list=self.model.obs_encoder.no_weight_decay(),
+                                                         layer_decay=cfg.training.layer_decay)
+            count = 0
+            for group in obs_encorder_param_groups:
+                count += len(group['params'])
+            print(f'obs_encorder params: {count}')
+            param_groups = [{'params': self.model.model.parameters()}]
+            param_groups.extend(obs_encorder_param_groups)
+        else:
+            obs_encorder_lr = cfg.optimizer.lr
+            if cfg.policy.obs_encoder.pretrained and not cfg.policy.obs_encoder.use_lora:
+                obs_encorder_lr *= 0.1
+                print('==> reduce pretrained obs_encorder\'s lr')
+            obs_encorder_params = list()
+            for param in self.model.obs_encoder.parameters():
+                if param.requires_grad:
+                    obs_encorder_params.append(param)
+            print(f'obs_encorder params: {len(obs_encorder_params)}')
+            param_groups = [
+                {'params': self.model.model.parameters()},
+                {'params': obs_encorder_params, 'lr': obs_encorder_lr}
+            ]
         optimizer_cfg = OmegaConf.to_container(cfg.optimizer, resolve=True)
-        optimizer_cfg.pop('_target_')
+        optimizer_cfg.pop('_target_'); optimizer_cfg.pop('encoder_weight_decay')
         self.optimizer = torch.optim.AdamW(
             params=param_groups,
             **optimizer_cfg
         )
+        tmp = self.optimizer.state_dict()
 
         # configure training state
         self.global_step = 0

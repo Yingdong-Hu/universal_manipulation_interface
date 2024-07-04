@@ -81,7 +81,7 @@ def main(input_dir, map_path, docker_image, no_docker_pull, no_mask):
         '--input_video', str(video_path),
         '--input_imu_json', str(json_path),
         '--output_trajectory_csv', str(csv_path),
-        '--save_map', str(map_mount_target)
+        '--save_map', str(map_mount_target),
     ]
     if not no_mask:
         cmd.extend([

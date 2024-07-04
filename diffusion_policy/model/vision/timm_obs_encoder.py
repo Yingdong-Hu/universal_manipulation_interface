@@ -12,6 +12,7 @@ import logging
 from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 
 from diffusion_policy.common.pytorch_util import replace_submodules
+from diffusion_policy.model.vision.choice_randomizer import RandomChoice
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,12 @@ class TimmObsEncoder(ModuleAttrMixin):
                  # renormalize rgb input with imagenet normalization
                  # assuming input in [0,1]
                  imagenet_norm: bool = False,
+                 three_augment: bool = False,
                  feature_aggregation: str = 'spatial_embedding',
                  downsample_ratio: int = 32,
                  position_encording: str = 'learnable',
                  use_lora: bool = False,
+                 drop_path_rate: float = 0.0
                  ):
         """
         Assumes rgb input: B,T,C,H,W
@@ -101,6 +104,7 @@ class TimmObsEncoder(ModuleAttrMixin):
             global_pool=global_pool,    # '' means no pooling
             num_classes=0,              # remove classification layer
             img_size=image_shape[0],    # 224
+            drop_path_rate=drop_path_rate,  # stochastic depth
         )
 
         if frozen:
@@ -169,6 +173,23 @@ class TimmObsEncoder(ModuleAttrMixin):
             if imagenet_norm:
                 eval_transforms = eval_transforms + [torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
         eval_transform = nn.Identity() if transforms is None else torch.nn.Sequential(*eval_transforms)
+
+        if three_augment:
+            # Following DeiT III: https://arxiv.org/abs/2204.07118
+            primary_tfl = [
+                torchvision.transforms.RandomCrop(image_shape[0], padding=4, padding_mode='reflect'),
+            ]
+            secondary_tfl = [
+                RandomChoice([torchvision.transforms.Grayscale(num_output_channels=3),
+                              torchvision.transforms.RandomSolarize(threshold=0.5, p=1.0),
+                              torchvision.transforms.GaussianBlur(kernel_size=5)]),
+                torchvision.transforms.ColorJitter(0.3, 0.3, 0.3)
+            ]
+            final_tfl = [
+                torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ]
+            transform = torch.nn.Sequential(*primary_tfl, *secondary_tfl, *final_tfl)
+            assert eval_transform is not None and eval_transform != nn.Identity()
 
         for key, attr in obs_shape_meta.items():
             shape = tuple(attr['shape'])
@@ -334,6 +355,10 @@ class TimmObsEncoder(ModuleAttrMixin):
         assert example_output.shape[0] == 1
 
         return example_output.shape
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {'pos_embed', 'cls_token', 'dist_token'}
 
 
 if __name__ == '__main__':

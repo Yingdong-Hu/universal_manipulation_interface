@@ -142,7 +142,6 @@ class DiffusionUnetTimmPolicy(BaseImagePolicy):
             cond_mask[:, :n_fixed_steps] = True
             cond_data = self.normalizer['action'].normalize(cond_data)
 
-
         # run sampling
         nsample = self.conditional_sample(
             condition_data=cond_data, 

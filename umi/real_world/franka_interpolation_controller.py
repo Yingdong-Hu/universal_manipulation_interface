@@ -293,7 +293,6 @@ class FrankaInterpolationController(mp.Process):
                 state = dict()
                 for key, func_name in self.receive_keys:
                     state[key] = getattr(robot, func_name)()
-
                     
                 t_recv = time.time()
                 state['robot_receive_timestamp'] = t_recv
