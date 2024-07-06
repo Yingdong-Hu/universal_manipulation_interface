@@ -54,7 +54,8 @@ policy:
     global_pool: ''
 
     # 'avg' or 'max' or 'soft_attention' or 'spatial_embedding' or 'transformer' or 'attention_pool_2d'
-    feature_aggregation: 'attention_pool_2d'
+    # vit: 'cls_token' or 'map'
+    feature_aggregation: 'cls_token'
     # feature_aggregation: null
     position_encording: 'sinusoidal' # 'learnable' or 'sinusoidal'. it only works for transformer
 
@@ -95,6 +96,7 @@ policy:
     share_rgb_model: False
     imagenet_norm: True
     three_augment: False
+    fused_model_name: ''
 
   num_inference_steps: 16
   obs_as_global_cond: True

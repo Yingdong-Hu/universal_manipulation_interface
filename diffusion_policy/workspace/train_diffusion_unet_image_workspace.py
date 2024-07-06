@@ -70,6 +70,10 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
             count = 0
             for group in obs_encorder_param_groups:
                 count += len(group['params'])
+            if cfg.policy.obs_encoder.feature_aggregation == 'map':
+                obs_encorder_param_groups.extend([{'params': self.model.obs_encoder.attn_pool.parameters()}])
+                for _ in self.model.obs_encoder.attn_pool.parameters():
+                    count += 1
             print(f'obs_encorder params: {count}')
             param_groups = [{'params': self.model.model.parameters()}]
             param_groups.extend(obs_encorder_param_groups)
@@ -93,7 +97,7 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
             params=param_groups,
             **optimizer_cfg
         )
-        tmp = self.optimizer.state_dict()
+        # tmp = self.optimizer.state_dict()
 
         # configure training state
         self.global_step = 0

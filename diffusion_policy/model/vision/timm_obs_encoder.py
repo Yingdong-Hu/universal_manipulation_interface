@@ -8,11 +8,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import logging
+from functools import partial
 
 from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 
 from diffusion_policy.common.pytorch_util import replace_submodules
 from diffusion_policy.model.vision.choice_randomizer import RandomChoice
+from timm.layers.attention_pool import AttentionPoolLatent
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +75,8 @@ class TimmObsEncoder(ModuleAttrMixin):
                  downsample_ratio: int = 32,
                  position_encording: str = 'learnable',
                  use_lora: bool = False,
-                 drop_path_rate: float = 0.0
+                 drop_path_rate: float = 0.0,
+                 fused_model_name: str = '',
                  ):
         """
         Assumes rgb input: B,T,C,H,W
@@ -84,6 +87,7 @@ class TimmObsEncoder(ModuleAttrMixin):
         rgb_keys = list()
         low_dim_keys = list()
         key_model_map = nn.ModuleDict()
+        key_fused_model_map = nn.ModuleDict()
         key_transform_map = nn.ModuleDict()
         key_eval_transform_map = nn.ModuleDict()
         key_shape_map = dict()
@@ -123,7 +127,22 @@ class TimmObsEncoder(ModuleAttrMixin):
             model = peft.get_peft_model(model, lora_config)
             model.print_trainable_parameters()
 
+        fused_model = None
+        if fused_model_name != '':
+            assert feature_aggregation == 'map'
+            fused_model = timm.create_model(
+                model_name=fused_model_name,
+                pretrained=True,
+                global_pool=global_pool,
+                num_classes=0,
+                img_size=image_shape[0],
+                drop_path_rate=0.0,
+            )
+            for param in fused_model.parameters():
+                param.requires_grad = False
+
         feature_dim = None
+        num_heads = None
         if model_name.startswith('resnet'):
             # the last layer is nn.Identity() because num_classes is 0
             # second last layer is AdaptivePool2d, which is also identity because global_pool is empty
@@ -146,6 +165,11 @@ class TimmObsEncoder(ModuleAttrMixin):
                 feature_dim = 1024
             else:
                 raise NotImplementedError(f"Unsupported downsample_ratio: {downsample_ratio}")
+        elif model_name.startswith('vit'):
+            feature_dim = model.num_features
+            num_heads = model.blocks[0].attn.num_heads
+            if fused_model_name != '':
+                feature_dim = feature_dim + fused_model.num_features
 
         if use_group_norm and not pretrained:
             model = replace_submodules(
@@ -201,6 +225,7 @@ class TimmObsEncoder(ModuleAttrMixin):
                 this_model = model if share_rgb_model else copy.deepcopy(model)
                 key_model_map[key] = this_model
 
+                key_fused_model_map[key] = fused_model
                 this_transform = transform
                 key_transform_map[key] = this_transform
                 key_eval_transform_map[key] = eval_transform
@@ -220,6 +245,7 @@ class TimmObsEncoder(ModuleAttrMixin):
         self.model_name = model_name
         self.shape_meta = shape_meta
         self.key_model_map = key_model_map
+        self.key_fused_model_map = key_fused_model_map
         self.key_transform_map = key_transform_map
         self.key_eval_transform_map = key_eval_transform_map
         self.share_rgb_model = share_rgb_model
@@ -227,14 +253,19 @@ class TimmObsEncoder(ModuleAttrMixin):
         self.low_dim_keys = low_dim_keys
         self.key_shape_map = key_shape_map
         self.feature_aggregation = feature_aggregation
+        self.fused_model_name = fused_model_name
         if model_name.startswith('vit'):
-            # assert self.feature_aggregation is None # vit uses the CLS token
-            if self.feature_aggregation == 'all_tokens':
-                # Use all tokens from ViT
+            if self.feature_aggregation == 'cls_token':
                 pass
-            elif self.feature_aggregation is not None:
-                logger.warn(f'vit will use the CLS token. feature_aggregation ({self.feature_aggregation}) is ignored!')
-                self.feature_aggregation = None
+            elif self.feature_aggregation == 'map':
+                # Multihead Attention Pooling, following https://arxiv.org/abs/1810.00825
+                self.attn_pool = AttentionPoolLatent(
+                    in_features=feature_dim,
+                    num_heads=num_heads,
+                    norm_layer=partial(nn.LayerNorm, eps=1e-6),
+                )
+            else:
+                raise NotImplementedError(f"Unsupported feature_aggregation: {self.feature_aggregation}")
 
         if self.feature_aggregation == 'soft_attention':
             self.attention = nn.Sequential(
@@ -270,10 +301,18 @@ class TimmObsEncoder(ModuleAttrMixin):
             "number of parameters: %e", sum(p.numel() for p in self.parameters())
         )
 
-    def aggregate_feature(self, feature):
+    def aggregate_feature(self, feature, fused_feature=None):
         if self.model_name.startswith('vit'):
-            assert self.feature_aggregation is None  # vit uses the CLS token
-            return feature[:, 0, :]
+            if self.feature_aggregation == 'cls_token':
+                return feature[:, 0, :]
+            elif self.feature_aggregation == 'map':
+                feature = feature[:, 1:, :]
+                if fused_feature is not None:
+                    num_tokens = feature.shape[1]
+                    fused_feature = fused_feature[:, -num_tokens:, :]
+                    feature = torch.cat([feature, fused_feature], dim=2)
+                feature = self.attn_pool(feature)
+                return feature
 
         # resnet
         assert len(feature.shape) == 4
@@ -322,7 +361,11 @@ class TimmObsEncoder(ModuleAttrMixin):
                 img = self.key_eval_transform_map[key](img)
 
             raw_feature = self.key_model_map[key](img)
-            feature = self.aggregate_feature(raw_feature)
+            fused_feature = None
+            if self.fused_model_name != '':
+                fused_feature = self.key_fused_model_map[key](img)
+
+            feature = self.aggregate_feature(raw_feature, fused_feature)
             assert len(feature.shape) == 2 and feature.shape[0] == B * T
             features.append(feature.reshape(B, -1))
 
