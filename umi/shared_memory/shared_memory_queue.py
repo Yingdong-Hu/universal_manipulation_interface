@@ -86,6 +86,24 @@ class SharedMemoryQueue:
     
     def clear(self):
         self.read_counter.store(self.write_counter.load())
+
+    def clear_before_time(self, target_time, keys: List):
+        write_count = self.write_counter.load()
+        read_count = self.read_counter.load()
+        n_data = write_count - read_count
+        if n_data <= 0:
+            return
+
+        curr_idx = read_count % self.buffer_size
+        while curr_idx != write_count:
+            time = self.shared_arrays['target_time'].get()[curr_idx].item()
+            # print(f"remove time: {time} , curr_idx: {curr_idx}, target_time: {target_time}")
+            if time >= target_time:
+                break
+            curr_idx += 1
+            curr_idx %= self.buffer_size
+
+        self.read_counter.store(curr_idx)
     
     def put(self, data: Dict[str, Union[np.ndarray, numbers.Number]]):
         read_count = self.read_counter.load()

@@ -509,6 +509,11 @@ class BimanualUmiEnv:
         assert new_actions.shape[1] // len(self.robots) == 7
         assert new_actions.shape[1] % len(self.robots) == 0
 
+        if len(new_actions) > 0:
+            for robot in self.robots:
+                # clean the action queue to guarantee real-time control
+                robot.clear_buffer(target_time=new_timestamps[-1] - 0.01)
+
         # schedule waypoints
         for i in range(len(new_actions)):
             for robot_idx, (robot, gripper, rc, gc) in enumerate(zip(self.robots, self.grippers, self.robots_config, self.grippers_config)):

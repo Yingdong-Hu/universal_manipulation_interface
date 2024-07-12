@@ -223,6 +223,10 @@ class FrankaInterpolationController(mp.Process):
             'target_time': target_time
         }
         self.input_queue.put(message)
+        # print(f'put 1 action to queue at {time.monotonic() - time.time() + target_time}, queue size: {self.input_queue.qsize()}')
+
+    def clear_buffer(self, target_time):
+        self.input_queue.clear_before_time(target_time, keys=['cmd', 'target_pose', 'target_time'])
     
     # ========= receive APIs =============
     def get_state(self, k=None, out=None):
