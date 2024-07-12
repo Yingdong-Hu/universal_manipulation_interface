@@ -140,6 +140,7 @@ class TimmObsEncoder(ModuleAttrMixin):
             )
             for param in fused_model.parameters():
                 param.requires_grad = False
+            fused_model.eval()
 
         feature_dim = None
         num_heads = None

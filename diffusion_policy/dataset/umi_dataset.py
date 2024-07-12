@@ -360,8 +360,8 @@ class UmiDataset(BaseDataset):
             actions.append(np.concatenate([action_pose, action_gripper], axis=-1))
 
             # generate data
-            obs_dict[f'robot{robot_id}_eef_pos'] = obs_pose[:,:3]
-            obs_dict[f'robot{robot_id}_eef_rot_axis_angle'] = obs_pose[:,3:]
+            obs_dict[f'robot{robot_id}_eef_pos'] = obs_pose[:, :3]
+            obs_dict[f'robot{robot_id}_eef_rot_axis_angle'] = obs_pose[:, 3:]
             
         data['action'] = np.concatenate(actions, axis=-1)
         

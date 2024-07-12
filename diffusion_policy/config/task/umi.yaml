@@ -4,10 +4,17 @@ camera_obs_latency: 0.125
 robot_obs_latency: 0.0001
 gripper_obs_latency: 0.02
 dataset_frequeny: 0 #59.94
-obs_down_sample_steps: 3 # 3, 1
 
+obs_down_sample_steps: 3 # 3, 1
+action_down_sample_steps: 3
 low_dim_obs_horizon: 2
 img_obs_horizon: 2
+
+#obs_down_sample_steps: [3, 30]
+#action_down_sample_steps: 3
+#low_dim_obs_horizon: 3
+#img_obs_horizon: 3
+
 action_horizon: 16
 ignore_proprioception: False
 
@@ -79,7 +86,7 @@ shape_meta: &shape_meta
     shape: [10]
     horizon: ${task.action_horizon}
     latency_steps: 0 # float
-    down_sample_steps: ${task.obs_down_sample_steps} # int
+    down_sample_steps: ${task.action_down_sample_steps} # int
     rotation_rep: rotation_6d
 
 task_name: &task_name umi

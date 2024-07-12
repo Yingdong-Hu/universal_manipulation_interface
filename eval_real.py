@@ -188,6 +188,11 @@ def main(input, output, robot_config,
                 enable_multi_cam_vis=True,
                 # latency
                 camera_obs_latency=0.17,
+
+                # camera_down_sample_steps=[10, 1, 0],
+                # robot_down_sample_steps=[10, 1, 0],
+                # gripper_down_sample_steps=[10, 1, 0],
+
                 # obs
                 camera_obs_horizon=cfg.task.shape_meta.obs.camera0_rgb.horizon,
                 robot_obs_horizon=cfg.task.shape_meta.obs.robot0_eef_pos.horizon,

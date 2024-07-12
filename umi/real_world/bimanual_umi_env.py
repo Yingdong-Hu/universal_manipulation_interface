@@ -362,9 +362,12 @@ class BimanualUmiEnv:
 
         # get data
         # 60 Hz, camera_calibrated_timestamp
-        k = math.ceil(
-            self.camera_obs_horizon * self.camera_down_sample_steps \
-            * (60 / self.frequency)) + 2  # here 2 is adjustable, typically 1 should be enough
+        if type(self.camera_down_sample_steps) == int:
+            k = math.ceil(
+                self.camera_obs_horizon * self.camera_down_sample_steps \
+                * (60 / self.frequency)) + 2  # here 2 is adjustable, typically 1 should be enough
+        elif type(self.camera_down_sample_steps) == list:
+            k = math.ceil(max(self.camera_down_sample_steps) * (60 / self.frequency)) + 2
         # print('==>k  ', k, self.camera_obs_horizon, self.camera_down_sample_steps, self.frequency)
         self.last_camera_data = self.camera.get(
             k=k, 
@@ -405,8 +408,11 @@ class BimanualUmiEnv:
         dt = 1 / self.frequency
 
         # align camera obs timestamps
-        camera_obs_timestamps = last_timestamp - (
-            np.arange(self.camera_obs_horizon)[::-1] * self.camera_down_sample_steps * dt)
+        if type(self.camera_down_sample_steps) == int:
+            camera_obs_timestamps = last_timestamp - (
+                np.arange(self.camera_obs_horizon)[::-1] * self.camera_down_sample_steps * dt)
+        elif type(self.camera_down_sample_steps) == list:
+            camera_obs_timestamps = last_timestamp - np.array(self.camera_down_sample_steps) * dt
         camera_obs = dict()
         for camera_idx, value in self.last_camera_data.items():
             this_timestamps = value['timestamp']
@@ -426,8 +432,11 @@ class BimanualUmiEnv:
         obs_data['timestamp'] = camera_obs_timestamps
 
         # align robot obs
-        robot_obs_timestamps = last_timestamp - (
-            np.arange(self.robot_obs_horizon)[::-1] * self.robot_down_sample_steps * dt)
+        if type(self.robot_down_sample_steps) == int:
+            robot_obs_timestamps = last_timestamp - (
+                np.arange(self.robot_obs_horizon)[::-1] * self.robot_down_sample_steps * dt)
+        elif type(self.robot_down_sample_steps) == list:
+            robot_obs_timestamps = last_timestamp - np.array(self.robot_down_sample_steps) * dt
         for robot_idx, last_robot_data in enumerate(last_robots_data):
             robot_pose_interpolator = PoseInterpolator(
                 t=last_robot_data['robot_timestamp'], 
@@ -441,8 +450,11 @@ class BimanualUmiEnv:
             obs_data.update(robot_obs)
 
         # align gripper obs
-        gripper_obs_timestamps = last_timestamp - (
-            np.arange(self.gripper_obs_horizon)[::-1] * self.gripper_down_sample_steps * dt)
+        if type(self.gripper_down_sample_steps) == int:
+            gripper_obs_timestamps = last_timestamp - (
+                np.arange(self.gripper_obs_horizon)[::-1] * self.gripper_down_sample_steps * dt)
+        elif type(self.gripper_down_sample_steps) == list:
+            gripper_obs_timestamps = last_timestamp - np.array(self.gripper_down_sample_steps) * dt
         for robot_idx, last_gripper_data in enumerate(last_grippers_data):
             # align gripper obs
             gripper_interpolator = get_interp1d(

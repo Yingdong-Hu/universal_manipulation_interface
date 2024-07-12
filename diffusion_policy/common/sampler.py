@@ -1,4 +1,5 @@
 from typing import Optional
+import omegaconf
 import numpy as np
 import random
 import scipy.interpolate as si
@@ -42,7 +43,7 @@ class SequenceSampler:
         # create indices, including (current_idx, start_idx, end_idx)
         indices = list()
         for i in range(len(episode_ends)):
-            before_first_grasp = True # initialize for each episode
+            before_first_grasp = True  # initialize for each episode
             if episode_mask is not None and not episode_mask[i]:
                 # skip episode
                 continue
@@ -110,7 +111,7 @@ class SequenceSampler:
         self.key_latency_steps = key_latency_steps
         self.key_down_sample_steps = key_down_sample_steps
         
-        self.ignore_rgb_is_applied = False # speed up the interation when getting normalizaer
+        self.ignore_rgb_is_applied = False  # speed up the interation when getting normalizaer
 
     def __len__(self):
         return len(self.indices)
@@ -133,20 +134,38 @@ class SequenceSampler:
             
             if key in self.rgb_keys:
                 assert this_latency_steps == 0
-                num_valid = min(this_horizon, (current_idx - start_idx) // this_downsample_steps + 1)
-                slice_start = current_idx - (num_valid - 1) * this_downsample_steps
+                if type(this_downsample_steps) == int:
+                    num_valid = min(this_horizon, (current_idx - start_idx) // this_downsample_steps + 1)
+                    slice_start = current_idx - (num_valid - 1) * this_downsample_steps
 
-                output = input_arr[slice_start: current_idx + 1: this_downsample_steps]
-                assert output.shape[0] == num_valid
-                
-                # solve padding
-                if output.shape[0] < this_horizon:
-                    padding = np.repeat(output[:1], this_horizon - output.shape[0], axis=0)
-                    output = np.concatenate([padding, output], axis=0)
+                    output = input_arr[slice_start: current_idx + 1: this_downsample_steps]
+                    assert output.shape[0] == num_valid
+
+                    # solve padding
+                    if output.shape[0] < this_horizon:
+                        padding = np.repeat(output[:1], this_horizon - output.shape[0], axis=0)
+                        output = np.concatenate([padding, output], axis=0)
+                elif type(this_downsample_steps) == omegaconf.listconfig.ListConfig:
+                    target_idx = np.array([current_idx] + [current_idx - this_downsample_steps[idx] for idx in range(this_horizon - 1)])
+                    target_idx = target_idx[target_idx >= start_idx][::-1]
+                    output = input_arr[target_idx]
+                    # solve padding
+                    if output.shape[0] < this_horizon:
+                        padding = np.repeat(output[:1], this_horizon - output.shape[0], axis=0)
+                        output = np.concatenate([padding, output], axis=0)
+                else:
+                    raise NotImplementedError
             else:
-                idx_with_latency = np.array(
-                    [current_idx - idx * this_downsample_steps + this_latency_steps for idx in range(this_horizon)],
-                    dtype=np.float32)
+                if type(this_downsample_steps) == int:
+                    idx_with_latency = np.array(
+                        [current_idx - idx * this_downsample_steps + this_latency_steps for idx in range(this_horizon)],
+                        dtype=np.float32)
+                elif type(this_downsample_steps) == omegaconf.listconfig.ListConfig:
+                    idx_with_latency = np.array(
+                        [current_idx] + [current_idx - this_downsample_steps[idx] + this_latency_steps for idx in range(this_horizon - 1)],
+                        dtype=np.float32)
+                else:
+                    raise NotImplementedError
                 idx_with_latency = idx_with_latency[::-1]
                 idx_with_latency = np.clip(idx_with_latency, start_idx, end_idx - 1)
                 interpolation_start = max(int(idx_with_latency[0]) - 5, start_idx)

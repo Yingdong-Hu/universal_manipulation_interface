@@ -35,6 +35,7 @@ from accelerate import Accelerator
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
+
 class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
     include_keys = ['global_step', 'epoch']
     exclude_keys = tuple()
