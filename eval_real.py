@@ -58,6 +58,7 @@ from umi.real_world.real_inference_util import (get_real_obs_dict,
                                                 get_real_umi_action)
 from umi.real_world.spacemouse_shared_memory import Spacemouse
 from umi.common.pose_util import pose_to_mat, mat_to_pose
+from scipy.spatial.transform import Rotation as R
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
@@ -509,13 +510,17 @@ def main(input, output, robot_config,
                                 action_seq_for_curr_step = all_time_actions[:, iter_idx:iter_idx + action_horizon]
                                 target_pose_list = []
                                 for i in range(action_horizon):
-                                    actions_for_curr_step = action_seq_for_curr_step[:, i]
+                                    ensemble_num = action_horizon  # TODO: tune this number
+                                    actions_for_curr_step = action_seq_for_curr_step[max(0, iter_idx - ensemble_num + 1): iter_idx + 1, i]
                                     actions_populated = np.all(actions_for_curr_step != 0, axis=1)
                                     actions_for_curr_step = actions_for_curr_step[actions_populated]
-                                    k = 0.01
+                                    k = 0.01  # TODO: tune this number
                                     exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
                                     exp_weights = exp_weights / exp_weights.sum()
-                                    target_pose_list.append((actions_for_curr_step * exp_weights[:, np.newaxis]).sum(axis=0, keepdims=True))
+                                    weighted_rotvec = R.from_rotvec(np.array(actions_for_curr_step)[:, 3:6]).mean(weights=exp_weights).as_rotvec()
+                                    weighted_action = (actions_for_curr_step * exp_weights[:, np.newaxis]).sum(axis=0, keepdims=True)
+                                    weighted_action[0][3:6] = weighted_rotvec
+                                    target_pose_list.append(weighted_action)
                                 this_target_poses = np.concatenate(target_pose_list, axis=0)
                             else:
                                 this_target_poses = action
